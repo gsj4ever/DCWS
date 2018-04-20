@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 def plot_history(history_path):
-    with open('./data/history', 'rb') as f:
+    with open(history_path, 'rb') as f:
         hist = pickle.load(f)
 
     iters = range(len(hist['loss']))
@@ -20,7 +20,6 @@ def plot_history(history_path):
     plt.grid(True)
     plt.ylabel('Accuracy ')
     plt.legend(loc="lower right")
-
     # loss
     plt.subplot(212)
     plt.plot(iters, hist['loss'], 'g.-', label='training loss')
@@ -29,7 +28,6 @@ def plot_history(history_path):
     plt.xlabel('epoch #')
     plt.ylabel('Loss')
     plt.legend(loc="right")
-
     plt.show()
 
 

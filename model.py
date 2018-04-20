@@ -7,7 +7,6 @@ import pickle
 from keras.models import Sequential
 from keras.layers import Embedding, LSTM, Bidirectional, Dense, TimeDistributed, Dropout
 from keras_contrib.layers import CRF
-from keras.optimizers import Adam
 from keras.callbacks import EarlyStopping, ModelCheckpoint, TerminateOnNaN
 from keras_contrib.utils import save_load_utils
 
@@ -22,23 +21,26 @@ BATCH_SIZE = 1024
 EPOCH_NUM = 50
 
 
-def build_model(X, Y, dict_size, max_len):
+def build_model(x, y, vocab_size, max_len):
     """Build up and train a bi-directional LSTM + CRF model, saving model architecture and weights, as well as history
-    :param X:
-    :param Y:
-    :param dict_size:
+    :param x:
+    :param y:
+    :param vocab_size:
     :param max_len:
     :return:
     """
 
     # TODO: read from an existing Word2Vec model, to enhance embedding performance
+
     model = Sequential()
-    model.add(Embedding(input_dim=dict_size+1, output_dim=EMBEDDING_SIZE, input_length=max_len, mask_zero=True))
+    model.add(Embedding(input_dim=vocab_size+1, output_dim=EMBEDDING_SIZE, input_length=max_len, mask_zero=True))
     model.add(Bidirectional(LSTM(HIDDEN_UNITS, return_sequences=True)))
     model.add(Dropout(DROPOUT_RATE))
     model.add(Bidirectional(LSTM(HIDDEN_UNITS, return_sequences=True)))
     model.add(Dropout(DROPOUT_RATE))
+
     # TODO: consider to add a CNN layer to get higher accuracies
+
     model.add(TimeDistributed(Dense(HIDDEN_UNITS, activation='relu')))
     crf = CRF(5)  # CAUTION!!! sparse_target: True for index, False for one-hot
     model.add(crf)
@@ -49,7 +51,7 @@ def build_model(X, Y, dict_size, max_len):
     checkpointer = ModelCheckpoint(filepath='./data/weights.hdf5', monitor='val_loss', verbose=1, save_best_only=True)
     stopper = EarlyStopping(monitor="val_loss", patience=2)
     terminator = TerminateOnNaN()
-    history = model.fit(X, Y, batch_size=BATCH_SIZE, epochs=EPOCH_NUM, validation_split=0.1,
+    history = model.fit(x, y, batch_size=BATCH_SIZE, epochs=EPOCH_NUM, validation_split=0.1,
                         callbacks=[checkpointer, stopper, terminator])
 
     # Save model architecture and weights
@@ -62,11 +64,11 @@ def build_model(X, Y, dict_size, max_len):
 
 
 if __name__ == '__main__':
-    f = h5py.File('./data/train_data.hdf5', 'r')
-    train_X = f['train_X'][:]
-    train_Y = f['train_Y'][:]
-    (dict_size, MAX_LEN) = f['params']
-    f.close()
+    file = h5py.File('./data/train_data.hdf5', 'r')
+    train_X = file['train_X'][:]
+    train_Y = file['train_Y'][:]
+    (dict_size, MAX_LEN) = file['params']
+    file.close()
     print("Training data sets loaded!")
 
     build_model(train_X, train_Y, dict_size, MAX_LEN)

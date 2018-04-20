@@ -6,6 +6,7 @@ import os
 import codecs
 import numpy as np
 import h5py
+import pickle
 from keras.preprocessing import sequence, text
 from keras.utils import to_categorical
 
@@ -65,7 +66,7 @@ def processSegWithTag(seg, char_collector, label_collector, isEnd):
         totalLine += 1
         for c in char_collector:
             if char_line:
-                char_line = char_line + u" " + c
+                char_line = char_line + c
             else:
                 char_line = c
 
@@ -132,8 +133,7 @@ def process_lines(lines):
 
 
 if __name__ == '__main__':
-    """
-    Preprocess train files
+    """Preprocess train files
     """
     # ROOT_PATH = 'D:/data/corpus/2015'
     ROOT_PATH = '/apps/py36venv/projects/LangLab/corpus/2014'
@@ -141,9 +141,9 @@ if __name__ == '__main__':
 
     chars, labels = process_lines(lines)
 
-    tokenizer = text.Tokenizer(filters='', oov_token='UNK')
+    tokenizer = text.Tokenizer(filters='', char_level=True, oov_token='UNK')
     tokenizer.fit_on_texts(chars)
-    # TODO: deal with characters with lower frequency, might less than 10 times or less than 5%
+    # TODO: deal with characters with lower frequency, which might less than 10 times or 5 in percentage
     tokens = tokenizer.texts_to_sequences(chars)
     dict_size = tokenizer.word_index.get('UNK')
 
@@ -155,49 +155,15 @@ if __name__ == '__main__':
     train_X = np.array(tokens_pad)
     train_Y = np.array(label_cat)
 
-    # Save training data sets
-    f = h5py.File('./data/train_data.hdf5', 'w')
-    f.create_dataset('train_X', data=train_X)
-    f.create_dataset('train_Y', data=train_Y)
-    f.create_dataset('params', data=(dict_size, MAX_LEN))
-    f.close()
+    # Save tokenizer for predicting or testing
+    with open('./data/tokenizer', 'wb') as f:
+        pickle.dump(tokenizer, f)
+
+    # Save training data sets, including useful training parameters
+    file = h5py.File('./data/train_data.hdf5', 'w')
+    file.create_dataset('train_X', data=train_X)
+    file.create_dataset('train_Y', data=train_Y)
+    file.create_dataset('params', data=(dict_size, MAX_LEN))
+    file.close()
+
     print('Training data files processing finished!')
-
-    """
-    Preprocess test file
-    """
-    test_file = codecs.open("test.txt", 'r', 'utf-8')
-    lines = test_file.readlines()
-    test_file.close()
-
-    test_sentences = []
-    for line in lines:
-        line = line.strip()
-        sents = line.split('。')
-        if len(sents) == 1:
-            test_sentences.extend(sents)
-        else:
-            for s in sents:
-                if s != '':
-                    test_sentences.append(s)
-
-    test_chars = []
-    for sent in test_sentences:
-        l = [i for i in sent if i != ' ']
-        test_chars.append(' '.join(l))
-
-    test_tokens = tokenizer.texts_to_sequences(test_chars)
-
-    test_tokens_pad = sequence.pad_sequences(test_tokens, MAX_LEN, padding='post', truncating='post', value=0)
-
-    test_X = np.array(test_tokens_pad)
-
-    with open('./data/test_chars.txt', 'w', encoding='utf-8') as f:
-        for i in test_chars:
-            f.write(i)
-            f.write("\n")
-
-    f = h5py.File('./data/test_data.hdf5', 'w')
-    f.create_dataset('test_X', data=test_X)
-    f.close()
-    print('Testing data files processing finished!')
