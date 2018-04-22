@@ -51,7 +51,7 @@ def build_model(x, y, vocab_size, max_len):
     checkpointer = ModelCheckpoint(filepath='./data/weights.hdf5', monitor='val_loss', verbose=1, save_best_only=True)
     stopper = EarlyStopping(monitor="val_loss", patience=2)
     terminator = TerminateOnNaN()
-    history = model.fit(x, y, batch_size=BATCH_SIZE, epochs=EPOCH_NUM, validation_split=0.1,
+    history = model.fit(x, y, batch_size=BATCH_SIZE, epochs=EPOCH_NUM, validation_split=0.1, verbose=1,
                         callbacks=[checkpointer, stopper, terminator])
 
     # Save model architecture and weights
@@ -64,11 +64,10 @@ def build_model(x, y, vocab_size, max_len):
 
 
 if __name__ == '__main__':
-    file = h5py.File('./data/train_data.hdf5', 'r')
-    train_X = file['train_X'][:]
-    train_Y = file['train_Y'][:]
-    (dict_size, MAX_LEN) = file['params']
-    file.close()
+    with h5py.File('./data/train_data.hdf5', 'r') as file:
+        train_X = file['train_X'][:]
+        train_Y = file['train_Y'][:]
+        (dict_size, MAX_LEN) = file['params']
     print("Training data sets loaded!")
 
     build_model(train_X, train_Y, dict_size, MAX_LEN)

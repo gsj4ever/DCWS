@@ -11,8 +11,10 @@ from keras.preprocessing import sequence, text
 from keras.utils import to_categorical
 
 
-SEQ_LABELS = ['S', 'B', 'M', 'E', 'X']  # Sequence labels, X for padding
-MAX_LEN = 80
+SEQ_LABELS = ['S', 'B', 'M', 'E', 'X']  # sequence labels, X for padding
+MAX_LEN = 80  # sentence max length
+MIN_LEN = 2  # sentence min length
+THRESHOLD = 10  # character least frequency
 totalLine = 0
 longLine = 0
 chars = []
@@ -70,9 +72,9 @@ def processSegWithTag(seg, char_collector, label_collector, isEnd):
             else:
                 char_line = c
 
-        # TODO: if char_line is too short, do not append it to chars
-        chars.append(char_line)
-        labels.append(label_line)
+        if len(char_line) >= MIN_LEN:
+            chars.append(char_line)
+            labels.append(label_line)
 
         del char_collector[:]
         del label_collector[:]
@@ -141,11 +143,23 @@ if __name__ == '__main__':
 
     chars, labels = process_lines(lines)
 
+    # Probe the whole dictionary
     tokenizer = text.Tokenizer(filters='', char_level=True, oov_token='UNK')
     tokenizer.fit_on_texts(chars)
-    # TODO: deal with characters with lower frequency, which might less than 10 times or 5 in percentage
-    tokens = tokenizer.texts_to_sequences(chars)
-    dict_size = tokenizer.word_index.get('UNK')
+
+    # Resize the dictionary, so as to remove infrequent characters less than THRESHOLD
+    dict_size = len({k for k, v in tokenizer.word_counts.items() if v > THRESHOLD})
+    tokenizer.num_words = dict_size
+
+    # Tokenize characters with the limited dictionary size, leave infrequent characters alone
+    tokens = [tokenizer.texts_to_sequences(i) for i in chars]
+    # Replace infrequent character token [] with 'UNK' token
+    for i in range(len(tokens)):
+        for j in range(len(tokens[i])):
+            if tokens[i][j]:
+                tokens[i][j] = tokens[i][j][0]
+            else:
+                tokens[i][j] = tokenizer.word_index.get('UNK')
 
     tokens_pad = sequence.pad_sequences(tokens, MAX_LEN, padding='post', truncating='post', value=0)
     labels_pad = sequence.pad_sequences(labels, MAX_LEN, padding='post', truncating='post', value=SEQ_LABELS.index('X'))
@@ -160,10 +174,9 @@ if __name__ == '__main__':
         pickle.dump(tokenizer, f)
 
     # Save training data sets, including useful training parameters
-    file = h5py.File('./data/train_data.hdf5', 'w')
-    file.create_dataset('train_X', data=train_X)
-    file.create_dataset('train_Y', data=train_Y)
-    file.create_dataset('params', data=(dict_size, MAX_LEN))
-    file.close()
+    with h5py.File('./data/train_data.hdf5', 'w') as file:
+        file.create_dataset('train_X', data=train_X)
+        file.create_dataset('train_Y', data=train_Y)
+        file.create_dataset('params', data=(dict_size, MAX_LEN))
 
     print('Training data files processing finished!')
