@@ -17,7 +17,7 @@ Global Parameters in training
 EMBEDDING_SIZE = 100
 HIDDEN_UNITS = 128
 DROPOUT_RATE = 0.5
-BATCH_SIZE = 1024
+BATCH_SIZE = 512
 EPOCH_NUM = 50
 
 
@@ -51,7 +51,7 @@ def build_model(x, y, vocab_size, max_len):
     checkpointer = ModelCheckpoint(filepath='./data/weights.hdf5', monitor='val_loss', verbose=1, save_best_only=True)
     stopper = EarlyStopping(monitor="val_loss", patience=2)
     terminator = TerminateOnNaN()
-    history = model.fit(x, y, batch_size=BATCH_SIZE, epochs=EPOCH_NUM, validation_split=0.1, verbose=1,
+    history = model.fit(x, y, batch_size=BATCH_SIZE, epochs=EPOCH_NUM, validation_split=0.1,
                         callbacks=[checkpointer, stopper, terminator])
 
     # Save model architecture and weights
@@ -67,8 +67,8 @@ if __name__ == '__main__':
     with h5py.File('./data/train_data.hdf5', 'r') as file:
         train_X = file['train_X'][:]
         train_Y = file['train_Y'][:]
-        (dict_size, MAX_LEN) = file['params']
+        (limit_size, MAX_LEN) = file['params']
     print("Training data sets loaded!")
 
-    build_model(train_X, train_Y, dict_size, MAX_LEN)
+    build_model(train_X, train_Y, limit_size, MAX_LEN)
     print("Model building and training finished!")

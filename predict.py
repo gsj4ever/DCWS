@@ -39,7 +39,18 @@ with open('./data/model_architecture.json', 'r') as f:
     model = model_from_json(f.read(), custom_objects={'CRF': CRF})
 save_load_utils.load_all_weights(model, './data/model_weights.hdf5')
 
-test_tokens = tokenizer.texts_to_sequences(test_sentences)
+# test_tokens = tokenizer.texts_to_sequences(test_sentences)
+
+# Deal with infrequent characters
+test_tokens = [tokenizer.texts_to_sequences(i) for i in test_sentences]
+for i in range(len(test_tokens)):
+    for j in range(len(test_tokens[i])):
+        if test_tokens[i][j]:
+            test_tokens[i][j] = test_tokens[i][j][0]
+        else:
+            test_tokens[i][j] = tokenizer.num_words  # tokenizer.word_index.get('UNK')  # limit_size?
+
+
 test_tokens_pad = sequence.pad_sequences(test_tokens, maxlen=MAX_LEN, padding='post', truncating='post', value=0)
 test_X = np.array(test_tokens_pad)
 test_Y = model.predict(test_X)

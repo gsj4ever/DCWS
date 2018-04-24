@@ -14,7 +14,7 @@ from keras.utils import to_categorical
 SEQ_LABELS = ['S', 'B', 'M', 'E', 'X']  # sequence labels, X for padding
 MAX_LEN = 80  # sentence max length
 MIN_LEN = 2  # sentence min length
-THRESHOLD = 10  # character least frequency
+FREQUENCY = 10  # character least frequency
 totalLine = 0
 longLine = 0
 chars = []
@@ -144,12 +144,16 @@ if __name__ == '__main__':
     chars, labels = process_lines(lines)
 
     # Probe the whole dictionary
-    tokenizer = text.Tokenizer(filters='', char_level=True, oov_token='UNK')
+    tokenizer = text.Tokenizer(filters='', char_level=True)
     tokenizer.fit_on_texts(chars)
 
-    # Resize the dictionary, so as to remove infrequent characters less than THRESHOLD
-    dict_size = len({k for k, v in tokenizer.word_counts.items() if v > THRESHOLD})
-    tokenizer.num_words = dict_size
+    # Resize the dictionary, so as to remove infrequent characters less than FREQUENCY
+    dict_size = len(tokenizer.word_index)
+    limit_size = len({k for k, v in tokenizer.word_counts.items() if v > FREQUENCY})
+    tokenizer.num_words = limit_size
+
+    print('Total characters: ' + str(dict_size))
+    print('Characters above frequency threshold ' + str(FREQUENCY) + ': ' + str(limit_size))
 
     # Tokenize characters with the limited dictionary size, leave infrequent characters alone
     tokens = [tokenizer.texts_to_sequences(i) for i in chars]
@@ -159,7 +163,7 @@ if __name__ == '__main__':
             if tokens[i][j]:
                 tokens[i][j] = tokens[i][j][0]
             else:
-                tokens[i][j] = tokenizer.word_index.get('UNK')
+                tokens[i][j] = limit_size  # Now limit_size stands for tokenizer.word_index.get('UNK')
 
     tokens_pad = sequence.pad_sequences(tokens, MAX_LEN, padding='post', truncating='post', value=0)
     labels_pad = sequence.pad_sequences(labels, MAX_LEN, padding='post', truncating='post', value=SEQ_LABELS.index('X'))
@@ -177,6 +181,6 @@ if __name__ == '__main__':
     with h5py.File('./data/train_data.hdf5', 'w') as file:
         file.create_dataset('train_X', data=train_X)
         file.create_dataset('train_Y', data=train_Y)
-        file.create_dataset('params', data=(dict_size, MAX_LEN))
+        file.create_dataset('params', data=(limit_size, MAX_LEN))
 
     print('Training data files processing finished!')
